@@ -7,7 +7,7 @@ services:
     # Se o seu repo contém apenas o projeto do dashboard, deixe em branco ou use '.'
     # NÃO use 'dist' como Root Directory, pois ele é gerado após o build.
     rootDir: .
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --legacy-peer-deps && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_VERSION
