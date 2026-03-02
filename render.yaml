@@ -3,10 +3,15 @@ services:
     name: pampatec-dashboard
     env: node
     plan: free
-    rootDir: dist
+    # O diretório raiz deve ser o diretório onde está o package.json
+    # Se o seu repo contém apenas o projeto do dashboard, deixe em branco ou use '.'
+    # NÃO use 'dist' como Root Directory, pois ele é gerado após o build.
+    rootDir: .
     buildCommand: npm install && npm run build
-    startCommand: npm run db:migrate && npm run db:seed && npm start
+    startCommand: npm start
     envVars:
       - key: NODE_VERSION
         value: 20
+      - key: GITHUB_TOKEN
+        sync: false # Você deve configurar este token manualmente no painel do Render
 
