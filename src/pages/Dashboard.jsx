@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Octokit } from '@octokit/rest';
 import { Card, Table, Badge, ProgressBar, Alert, Spinner, Button, Row, Col } from 'react-bootstrap';
-import { RefreshCw, ExternalLink, FileText, AlertCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { RefreshCw, ExternalLink, FileText, AlertCircle, Users, Eye, EyeOff, Power } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
+    const navigate = useNavigate();
     const [repos, setRepos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [tokenMissing, setTokenMissing] = useState(false);
+    const [showInactive, setShowInactive] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
@@ -59,6 +61,7 @@ const Dashboard = () => {
 
                         return {
                             ...repo,
+                            isActive: !(repo.topics && repo.topics.includes('pampatec-inativo')),
                             hasProgress: true,
                             currentStep: step,
                             percentage: percentage
@@ -66,6 +69,7 @@ const Dashboard = () => {
                     } catch (e) {
                         return {
                             ...repo,
+                            isActive: !(repo.topics && repo.topics.includes('pampatec-inativo')),
                             hasProgress: false,
                             percentage: 0
                         };
@@ -97,22 +101,49 @@ const Dashboard = () => {
         );
     }
 
+    const activeRepos = repos.filter(r => r.isActive);
+    const inactiveRepos = repos.filter(r => !r.isActive);
+    const displayedRepos = showInactive ? repos : activeRepos;
+
     return (
         <div className="py-4">
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <h2 className="fw-bold text-dark mb-1">Dashboard de Times</h2>
-                    <p className="text-muted mb-0">Monitoramento em tempo real do progresso do BMC.</p>
+                    <p className="text-muted mb-0">
+                        Monitoramento em tempo real do progresso do BMC.
+                        {!loading && repos.length > 0 && (
+                            <span className="ms-2">
+                                <Badge bg="success" className="me-1">{activeRepos.length} ativo(s)</Badge>
+                                {inactiveRepos.length > 0 && (
+                                    <Badge bg="secondary">{inactiveRepos.length} inativo(s)</Badge>
+                                )}
+                            </span>
+                        )}
+                    </p>
                 </div>
-                <Button
-                    variant="outline-primary"
-                    onClick={fetchData}
-                    disabled={loading}
-                    className="d-flex align-items-center gap-2"
-                >
-                    <RefreshCw size={18} className={loading ? 'spin' : ''} />
-                    {loading ? 'Atualizando...' : 'Atualizar'}
-                </Button>
+                <div className="d-flex gap-2">
+                    {inactiveRepos.length > 0 && (
+                        <Button
+                            variant={showInactive ? 'secondary' : 'outline-secondary'}
+                            onClick={() => setShowInactive(!showInactive)}
+                            className="d-flex align-items-center gap-2"
+                            size="sm"
+                        >
+                            {showInactive ? <EyeOff size={16} /> : <Eye size={16} />}
+                            {showInactive ? 'Ocultar inativos' : 'Mostrar inativos'}
+                        </Button>
+                    )}
+                    <Button
+                        variant="outline-primary"
+                        onClick={fetchData}
+                        disabled={loading}
+                        className="d-flex align-items-center gap-2"
+                    >
+                        <RefreshCw size={18} className={loading ? 'spin' : ''} />
+                        {loading ? 'Atualizando...' : 'Atualizar'}
+                    </Button>
+                </div>
             </div>
 
             {error && <Alert variant="danger">{error}</Alert>}
@@ -130,28 +161,40 @@ const Dashboard = () => {
                                 <thead className="bg-light">
                                     <tr>
                                         <th className="border-0 px-4 py-3">Startup / Repositório</th>
+                                        <th className="border-0 py-3">Status</th>
                                         <th className="border-0 py-3">Progresso</th>
                                         <th className="border-0 py-3 text-center">Etapa</th>
                                         <th className="border-0 py-3 text-end px-4">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {repos.length === 0 ? (
+                                    {displayedRepos.length === 0 ? (
                                         <tr>
-                                            <td colSpan="4" className="text-center py-5 text-muted">
+                                            <td colSpan="5" className="text-center py-5 text-muted">
                                                 <p className="mb-1">Nenhum repositório de time encontrado na organização.</p>
                                                 <small>Apenas repositórios com a etiqueta (topic) <code>pampatec-equipe</code> são exibidos.</small>
                                             </td>
                                         </tr>
                                     ) : (
-                                        repos.map(repo => (
-                                            <tr key={repo.id} className="align-middle">
+                                        displayedRepos.map(repo => (
+                                            <tr key={repo.id} className="align-middle" style={!repo.isActive ? { opacity: 0.55 } : {}}>
                                                 <td className="px-4 py-3">
                                                     <div className="fw-bold text-dark">{repo.name}</div>
                                                     <div className="small text-muted">
                                                         Atualizado em {new Date(repo.updated_at).toLocaleDateString()}
                                                     </div>
                                                     {repo.private && <Badge bg="secondary" className="ms-1 px-2">Privado</Badge>}
+                                                </td>
+                                                <td>
+                                                    {repo.isActive ? (
+                                                        <Badge pill bg="success" className="d-inline-flex align-items-center gap-1 px-3">
+                                                            <Power size={10} /> Ativo
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge pill bg="danger" className="d-inline-flex align-items-center gap-1 px-3">
+                                                            <Power size={10} /> Inativo
+                                                        </Badge>
+                                                    )}
                                                 </td>
                                                 <td style={{ minWidth: '200px' }}>
                                                     <div className="d-flex align-items-center gap-2">
@@ -174,6 +217,14 @@ const Dashboard = () => {
                                                 </td>
                                                 <td className="text-end px-4">
                                                     <div className="d-flex justify-content-end gap-2">
+                                                        <Button
+                                                            variant="outline-success"
+                                                            size="sm"
+                                                            onClick={() => navigate(`/gerenciar-time/${repo.name}`)}
+                                                            title="Gerenciar colaboradores"
+                                                        >
+                                                            <Users size={14} className="me-1" /> Gerenciar
+                                                        </Button>
                                                         <Button
                                                             variant="outline-secondary"
                                                             size="sm"
