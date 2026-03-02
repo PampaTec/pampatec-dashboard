@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Octokit } from '@octokit/rest';
 import { Card, Table, Badge, ProgressBar, Alert, Spinner, Button, Row, Col } from 'react-bootstrap';
 import { RefreshCw, ExternalLink, FileText, AlertCircle, Users, Eye, EyeOff, Power } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 const Dashboard = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [repos, setRepos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -88,7 +89,7 @@ const Dashboard = () => {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [location.key]);
 
     if (tokenMissing) {
         return (
@@ -180,9 +181,11 @@ const Dashboard = () => {
                                             <tr key={repo.id} className="align-middle" style={!repo.isActive ? { opacity: 0.55 } : {}}>
                                                 <td className="px-4 py-3">
                                                     <div className="fw-bold text-dark">{repo.name}</div>
-                                                    <div className="small text-muted">
-                                                        Atualizado em {new Date(repo.updated_at).toLocaleDateString()}
-                                                    </div>
+                                                    {repo.description && (
+                                                        <div className="small text-muted text-truncate" style={{ maxWidth: '300px' }} title={repo.description}>
+                                                            {repo.description}
+                                                        </div>
+                                                    )}
                                                     {repo.private && <Badge bg="secondary" className="ms-1 px-2">Privado</Badge>}
                                                 </td>
                                                 <td>
@@ -206,6 +209,9 @@ const Dashboard = () => {
                                                             style={{ height: '10px' }}
                                                         />
                                                         <span className="small fw-bold">{repo.percentage}%</span>
+                                                    </div>
+                                                    <div className="small text-muted mt-1">
+                                                        Atualizado em {new Date(repo.updated_at).toLocaleDateString('pt-BR')}
                                                     </div>
                                                 </td>
                                                 <td className="text-center">

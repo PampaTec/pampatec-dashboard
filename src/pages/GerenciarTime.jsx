@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Alert, Spinner, Row, Col, ListGroup, Badge, Form, InputGroup, Table, Modal } from 'react-bootstrap';
-import { Users, UserPlus, UserMinus, CheckCircle, AlertCircle, XCircle, ArrowLeft, ExternalLink, Shield, RefreshCw, Search, Mail, Power } from 'lucide-react';
+import { Users, UserPlus, UserMinus, CheckCircle, AlertCircle, XCircle, ArrowLeft, ExternalLink, Shield, RefreshCw, Search, Mail, Power, FileText, Edit3, Save } from 'lucide-react';
 import { Octokit } from '@octokit/rest';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+
+const DESCRIPTION_MAX_LENGTH = 350;
 
 const GerenciarTime = () => {
     const { repoName } = useParams();
@@ -26,6 +28,11 @@ const GerenciarTime = () => {
     const [userToRemove, setUserToRemove] = useState(null);
     const [removing, setRemoving] = useState(false);
 
+    // Descrição do projeto
+    const [editingDescription, setEditingDescription] = useState(false);
+    const [descriptionText, setDescriptionText] = useState('');
+    const [savingDescription, setSavingDescription] = useState(false);
+
     // Status ativo/inativo
     const [togglingStatus, setTogglingStatus] = useState(false);
     const [showDeactivateModal, setShowDeactivateModal] = useState(false);
@@ -48,6 +55,7 @@ const GerenciarTime = () => {
                 repo: repoName
             });
             setRepoInfo(repo);
+            setDescriptionText(repo.description || '');
 
             // Colaboradores diretos
             const { data: collabs } = await octokit.repos.listCollaborators({
@@ -365,6 +373,105 @@ const GerenciarTime = () => {
                                             </Button>
                                         )}
                                     </div>
+                                </Card.Body>
+                            </Card>
+
+                            {/* Card: Descrição do Projeto */}
+                            <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: '12px' }}>
+                                <Card.Header className="bg-white border-bottom py-3">
+                                    <div className="d-flex align-items-center justify-content-between">
+                                        <h5 className="mb-0 d-flex align-items-center gap-2 text-primary">
+                                            <FileText size={20} /> Descrição do Projeto
+                                        </h5>
+                                        {!editingDescription ? (
+                                            <Button
+                                                variant="outline-primary"
+                                                size="sm"
+                                                onClick={() => setEditingDescription(true)}
+                                                className="d-flex align-items-center gap-1"
+                                            >
+                                                <Edit3 size={14} /> Editar
+                                            </Button>
+                                        ) : (
+                                            <div className="d-flex gap-2">
+                                                <Button
+                                                    variant="outline-secondary"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setEditingDescription(false);
+                                                        setDescriptionText(repoInfo?.description || '');
+                                                    }}
+                                                    disabled={savingDescription}
+                                                >
+                                                    Cancelar
+                                                </Button>
+                                                <Button
+                                                    variant="success"
+                                                    size="sm"
+                                                    disabled={savingDescription}
+                                                    onClick={async () => {
+                                                        if (!token) return;
+                                                        setSavingDescription(true);
+                                                        setError(null);
+                                                        setSuccess(null);
+                                                        try {
+                                                            const octokit = new Octokit({ auth: token });
+                                                            await octokit.repos.update({
+                                                                owner: org,
+                                                                repo: repoName,
+                                                                description: descriptionText.trim().substring(0, DESCRIPTION_MAX_LENGTH)
+                                                            });
+                                                            setSuccess('Descrição do projeto atualizada com sucesso!');
+                                                            setEditingDescription(false);
+                                                            fetchData();
+                                                        } catch (err) {
+                                                            setError(`Erro ao salvar descrição: ${err.response?.data?.message || err.message}`);
+                                                        } finally {
+                                                            setSavingDescription(false);
+                                                        }
+                                                    }}
+                                                    className="d-flex align-items-center gap-1"
+                                                >
+                                                    {savingDescription ? (
+                                                        <><Spinner animation="border" size="sm" /> Salvando...</>
+                                                    ) : (
+                                                        <><Save size={14} /> Salvar</>
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </Card.Header>
+                                <Card.Body className="p-4">
+                                    {editingDescription ? (
+                                        <>
+                                            <Form.Control
+                                                as="textarea"
+                                                rows={3}
+                                                placeholder="Descreva brevemente o projeto da startup..."
+                                                value={descriptionText}
+                                                onChange={(e) => setDescriptionText(e.target.value.substring(0, DESCRIPTION_MAX_LENGTH))}
+                                                disabled={savingDescription}
+                                                maxLength={DESCRIPTION_MAX_LENGTH}
+                                            />
+                                            <div className="d-flex justify-content-between mt-1">
+                                                <Form.Text className="text-muted">
+                                                    Será salva como descrição do repositório no GitHub.
+                                                </Form.Text>
+                                                <Form.Text className={descriptionText.length > DESCRIPTION_MAX_LENGTH * 0.9 ? 'text-danger fw-bold' : 'text-muted'}>
+                                                    {descriptionText.length}/{DESCRIPTION_MAX_LENGTH}
+                                                </Form.Text>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div>
+                                            {repoInfo?.description ? (
+                                                <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>{repoInfo.description}</p>
+                                            ) : (
+                                                <p className="mb-0 text-muted fst-italic">Nenhuma descrição definida. Clique em "Editar" para adicionar.</p>
+                                            )}
+                                        </div>
+                                    )}
                                 </Card.Body>
                             </Card>
 

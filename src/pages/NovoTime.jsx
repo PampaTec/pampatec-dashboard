@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Form, Button, Alert, Spinner, Row, Col, ListGroup, Badge } from 'react-bootstrap';
-import { Rocket, CheckCircle, AlertCircle, Github, XCircle, Clock, UserCheck, Search } from 'lucide-react';
+import { Rocket, CheckCircle, AlertCircle, Github, XCircle, Clock, UserCheck, Search, FileText } from 'lucide-react';
 import { Octokit } from '@octokit/rest';
 import { useNavigate } from 'react-router-dom';
 
@@ -28,9 +28,13 @@ const waitForRepoReady = async (octokit, owner, repo, maxAttempts = 10, interval
     return false;
 };
 
+const REPO_NAME_MAX_LENGTH = 100;
+const DESCRIPTION_MAX_LENGTH = 350;
+
 const NovoTime = () => {
     const navigate = useNavigate();
     const [startupName, setStartupName] = useState('');
+    const [projectDescription, setProjectDescription] = useState('');
     const [collaborators, setCollaborators] = useState('');
     const [loading, setLoading] = useState(false);
     const [validating, setValidating] = useState(false);
@@ -156,7 +160,11 @@ const NovoTime = () => {
             const octokit = new Octokit({ auth: token });
 
             // 1. Criar repositório a partir do template
-            const repoName = startupName.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+            const repoName = startupName.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]/g, '').substring(0, REPO_NAME_MAX_LENGTH);
+
+            const repoDescription = projectDescription.trim()
+                ? projectDescription.trim().substring(0, DESCRIPTION_MAX_LENGTH)
+                : `Projeto de Pré-Incubação - Startup ${startupName}`;
 
             setStatus({ type: 'info', message: `Criando repositório '${repoName}'...` });
             addLog({ type: 'info', message: `Criando repositório '${repoName}' a partir do template...` });
@@ -167,7 +175,7 @@ const NovoTime = () => {
                 owner: org,
                 name: repoName,
                 private: true,
-                description: `Projeto de Pré-Incubação - Startup ${startupName}`
+                description: repoDescription
             });
 
             addLog({ type: 'success', message: `Repositório '${repoName}' criado com sucesso.` });
@@ -241,6 +249,7 @@ const NovoTime = () => {
 
             setCreatedRepoName(repoName);
             setStartupName('');
+            setProjectDescription('');
             setCollaborators('');
             setValidatedUsers([]);
             setValidationDone(false);
@@ -291,14 +300,43 @@ const NovoTime = () => {
                                         type="text"
                                         placeholder="Ex: PampaTech Solutions"
                                         value={startupName}
-                                        onChange={(e) => setStartupName(e.target.value)}
+                                        onChange={(e) => setStartupName(e.target.value.substring(0, REPO_NAME_MAX_LENGTH))}
                                         required
                                         disabled={loading}
                                         size="lg"
+                                        maxLength={REPO_NAME_MAX_LENGTH}
                                     />
-                                    <Form.Text className="text-muted">
-                                        Isso definirá o nome do repositório no GitHub.
-                                    </Form.Text>
+                                    <div className="d-flex justify-content-between mt-1">
+                                        <Form.Text className="text-muted">
+                                            Isso definirá o nome do repositório no GitHub.
+                                        </Form.Text>
+                                        <Form.Text className={startupName.length > REPO_NAME_MAX_LENGTH * 0.9 ? 'text-danger fw-bold' : 'text-muted'}>
+                                            {startupName.length}/{REPO_NAME_MAX_LENGTH}
+                                        </Form.Text>
+                                    </div>
+                                </Form.Group>
+
+                                <Form.Group className="mb-4">
+                                    <Form.Label className="fw-bold d-flex align-items-center gap-2">
+                                        <FileText size={18} className="text-primary" /> Descrição do Projeto
+                                    </Form.Label>
+                                    <Form.Control
+                                        as="textarea"
+                                        rows={3}
+                                        placeholder="Descreva brevemente o projeto da startup (ex: Plataforma de gestão para pequenos produtores rurais)"
+                                        value={projectDescription}
+                                        onChange={(e) => setProjectDescription(e.target.value.substring(0, DESCRIPTION_MAX_LENGTH))}
+                                        disabled={loading}
+                                        maxLength={DESCRIPTION_MAX_LENGTH}
+                                    />
+                                    <div className="d-flex justify-content-between mt-1">
+                                        <Form.Text className="text-muted">
+                                            Será salva como descrição do repositório no GitHub.
+                                        </Form.Text>
+                                        <Form.Text className={projectDescription.length > DESCRIPTION_MAX_LENGTH * 0.9 ? 'text-danger fw-bold' : 'text-muted'}>
+                                            {projectDescription.length}/{DESCRIPTION_MAX_LENGTH}
+                                        </Form.Text>
+                                    </div>
                                 </Form.Group>
 
                                 <Form.Group className="mb-3">
@@ -425,9 +463,9 @@ const NovoTime = () => {
                                                 className="py-2 px-3 d-flex align-items-start gap-2 small"
                                                 style={{
                                                     borderLeft: `3px solid ${log.type === 'success' ? '#198754' :
-                                                            log.type === 'danger' ? '#dc3545' :
-                                                                log.type === 'warning' ? '#ffc107' :
-                                                                    '#0d6efd'
+                                                        log.type === 'danger' ? '#dc3545' :
+                                                            log.type === 'warning' ? '#ffc107' :
+                                                                '#0d6efd'
                                                         }`
                                                 }}
                                             >
