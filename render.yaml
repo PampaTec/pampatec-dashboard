@@ -3,17 +3,9 @@ services:
     name: pampatec-dashboard
     env: node
     plan: free
-    rootDir: ./dist
+    rootDir: dist
     buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: no-cache
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
+    startCommand: npm run db:migrate && npm run db:seed && npm start
     envVars:
       - key: NODE_VERSION
         value: 20
