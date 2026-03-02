@@ -1,6 +1,9 @@
 services:
-  - type: static
+  - type: web
     name: pampatec-dashboard
+    env: node
+    plan: free
+    rootDir: ./dist
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     headers:
@@ -14,3 +17,4 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20
+
