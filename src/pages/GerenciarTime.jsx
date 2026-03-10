@@ -1,14 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Button, Alert, Spinner, Row, Col, ListGroup, Badge, Form, InputGroup, Table, Modal } from 'react-bootstrap';
-import { Users, UserPlus, UserMinus, CheckCircle, AlertCircle, XCircle, ArrowLeft, ExternalLink, Shield, RefreshCw, Search, Mail, Power, FileText, Edit3, Save } from 'lucide-react';
+import { Card, Button, Alert, Spinner, Row, Col, ListGroup, Badge, Form, InputGroup, Table, Modal, ProgressBar } from 'react-bootstrap';
+import { Users, UserPlus, UserMinus, CheckCircle, AlertCircle, XCircle, ArrowLeft, ExternalLink, Shield, RefreshCw, Search, Mail, Power, FileText, Edit3, Save, BarChart3 } from 'lucide-react';
 import { Octokit } from '@octokit/rest';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 
 const DESCRIPTION_MAX_LENGTH = 350;
+
+const PROGRESS_STATUS_COLORS = {
+    '⬜ Pendente': 'secondary',
+    '🔄 Em andamento': 'warning',
+    '✅ Concluída': 'success',
+};
 
 const GerenciarTime = () => {
     const { repoName } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [collaborators, setCollaborators] = useState([]);
     const [pendingInvites, setPendingInvites] = useState([]);
@@ -16,6 +23,12 @@ const GerenciarTime = () => {
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
     const [repoInfo, setRepoInfo] = useState(null);
+
+    // Progresso BMC
+    const [progressSteps, setProgressSteps] = useState([]);
+    const [progressPercentage, setProgressPercentage] = useState(0);
+    const [progressCurrentStep, setProgressCurrentStep] = useState(0);
+    const [hasProgress, setHasProgress] = useState(false);
 
     // Adicionar colaborador
     const [newUsername, setNewUsername] = useState('');
@@ -76,6 +89,54 @@ const GerenciarTime = () => {
                 setPendingInvites([]);
             }
 
+            // Progresso BMC
+            try {
+                const { data: fileData } = await octokit.repos.getContent({
+                    owner: org,
+                    repo: repoName,
+                    path: 'PROGRESSO_BMC.md'
+                });
+
+                let content;
+                try {
+                    content = decodeURIComponent(escape(atob(fileData.content)));
+                } catch (e) {
+                    content = atob(fileData.content);
+                }
+                const progressMatch = content.match(/Etapa (\d+) de 9 \((\d+)%\)/i);
+                const step = progressMatch ? parseInt(progressMatch[1]) : 0;
+                const pct = progressMatch ? parseInt(progressMatch[2]) : 0;
+
+                // Parsear etapas individuais
+                const stepRegex = /\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|/g;
+                const steps = [];
+                let m;
+                while ((m = stepRegex.exec(content)) !== null) {
+                    const stepNum = parseInt(m[1]);
+                    if (stepNum >= 1 && stepNum <= 9) {
+                        const rawStatus = m[3].trim();
+                        let status = '⬜ Pendente';
+                        if (rawStatus.includes('Conclu')) status = '✅ Concluída';
+                        else if (rawStatus.includes('andamento')) status = '🔄 Em andamento';
+
+                        steps.push({
+                            number: stepNum,
+                            name: m[2].trim(),
+                            status: status,
+                            date: m[4].trim(),
+                        });
+                    }
+                }
+
+                setProgressSteps(steps);
+                setProgressCurrentStep(step);
+                setProgressPercentage(pct);
+                setHasProgress(true);
+            } catch {
+                setHasProgress(false);
+                setProgressSteps([]);
+            }
+
         } catch (err) {
             console.error(err);
             setError(`Erro ao carregar dados: ${err.response?.data?.message || err.message}`);
@@ -87,6 +148,15 @@ const GerenciarTime = () => {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // Mensagem de sucesso vinda da navegação (ex: após salvar progresso)
+    useEffect(() => {
+        if (location.state?.successMessage) {
+            setSuccess(location.state.successMessage);
+            // Limpar o state para não exibir novamente ao navegar
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]);
 
     // Verificar username antes de adicionar
     const handleCheckUser = async () => {
@@ -470,6 +540,48 @@ const GerenciarTime = () => {
                                             ) : (
                                                 <p className="mb-0 text-muted fst-italic">Nenhuma descrição definida. Clique em "Editar" para adicionar.</p>
                                             )}
+                                        </div>
+                                    )}
+                                </Card.Body>
+                            </Card>
+
+                            {/* Card: Progresso BMC */}
+                            <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: '12px' }}>
+                                <Card.Header className="bg-white border-bottom py-3">
+                                    <div className="d-flex align-items-center justify-content-between">
+                                        <h5 className="mb-0 d-flex align-items-center gap-2 text-primary">
+                                            <BarChart3 size={20} /> Progresso BMC
+                                        </h5>
+                                        {hasProgress && (
+                                            <Button
+                                                variant="outline-primary"
+                                                size="sm"
+                                                onClick={() => navigate(`/editar-progresso/${repoName}`)}
+                                                className="d-flex align-items-center gap-1"
+                                            >
+                                                <Edit3 size={14} /> Editar Progresso
+                                            </Button>
+                                        )}
+                                    </div>
+                                </Card.Header>
+                                <Card.Body className="p-4">
+                                    {hasProgress ? (
+                                        <>
+                                            <div className="d-flex align-items-center gap-3 mb-3">
+                                                <span className="fw-bold">Status Geral:</span>
+                                                <span className="text-primary fw-bold">{progressCurrentStep} de 9 ({progressPercentage}%)</span>
+                                            </div>
+                                            <ProgressBar
+                                                now={progressPercentage}
+                                                variant={progressPercentage === 100 ? 'success' : 'primary'}
+                                                style={{ height: '10px', borderRadius: '5px' }}
+                                                className="mb-3"
+                                            />
+                                        </>
+                                    ) : (
+                                        <div className="text-center py-3 text-muted">
+                                            <FileText size={32} strokeWidth={1} className="mb-2 opacity-50" />
+                                            <p className="mb-0">Arquivo PROGRESSO_BMC.md não encontrado neste repositório.</p>
                                         </div>
                                     )}
                                 </Card.Body>

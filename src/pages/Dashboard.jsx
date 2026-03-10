@@ -52,7 +52,12 @@ const Dashboard = () => {
                         });
 
                         // Decode base64 content
-                        const content = atob(fileData.content);
+                        let content;
+                        try {
+                            content = decodeURIComponent(escape(atob(fileData.content)));
+                        } catch (e) {
+                            content = atob(fileData.content);
+                        }
 
                         // Basic parsing of the progress
                         // Looking for "Status Geral: Etapa X de 9 (XX%)"
@@ -172,8 +177,8 @@ const Dashboard = () => {
                                     {displayedRepos.length === 0 ? (
                                         <tr>
                                             <td colSpan="5" className="text-center py-5 text-muted">
-                                                <p className="mb-1">Nenhum repositório de time encontrado na organização.</p>
-                                                <small>Apenas repositórios com a etiqueta (topic) <code>pampatec-equipe</code> são exibidos.</small>
+                                                <p className="mb-1">Nenhum repositório ativo encontrado na organização.</p>
+                                                <small>Apenas repositórios com as etiquetas (topic) <code>pampatec-equipe</code> e <code>pampatec-ativo</code> são exibidos.</small>
                                             </td>
                                         </tr>
                                     ) : (
