@@ -236,26 +236,6 @@ const Dashboard = () => {
                                                         >
                                                             <Users size={14} className="me-1" /> Gerenciar
                                                         </Button>
-                                                        <Button
-                                                            variant="outline-secondary"
-                                                            size="sm"
-                                                            href={repo.html_url}
-                                                            target="_blank"
-                                                            title="Ver código no GitHub"
-                                                        >
-                                                            <ExternalLink size={14} />
-                                                        </Button>
-                                                        {repo.hasProgress && (
-                                                            <Button
-                                                                variant="outline-primary"
-                                                                size="sm"
-                                                                href={`${repo.html_url}/blob/main/PROGRESSO_BMC.md`}
-                                                                target="_blank"
-                                                                title="Ver progresso detalhado"
-                                                            >
-                                                                <FileText size={14} />
-                                                            </Button>
-                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
