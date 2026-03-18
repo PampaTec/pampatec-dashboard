@@ -3,30 +3,7 @@ import { Card, Form, Button, Alert, Spinner, Row, Col, ListGroup, Badge } from '
 import { Rocket, CheckCircle, AlertCircle, Github, XCircle, Clock, UserCheck, Search, FileText } from 'lucide-react';
 import { Octokit } from '@octokit/rest';
 import { useNavigate } from 'react-router-dom';
-
-// Helper: aguarda N milissegundos
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Helper: aguarda o repositório estar totalmente pronto (polling)
-const waitForRepoReady = async (octokit, owner, repo, maxAttempts = 10, intervalMs = 2000) => {
-    for (let i = 0; i < maxAttempts; i++) {
-        try {
-            const { data } = await octokit.repos.get({ owner, repo });
-            if (data && data.id) {
-                try {
-                    await octokit.repos.getContent({ owner, repo, path: '' });
-                    return true;
-                } catch {
-                    // Conteúdo ainda não disponível
-                }
-            }
-        } catch {
-            // Repo ainda não existe/pronto
-        }
-        await sleep(intervalMs);
-    }
-    return false;
-};
+import { validateUser, addCollaborator, createTeamRepository, waitForRepositoryReady, addTeamTopics } from '../features/team-management/api/teamApi';
 
 const REPO_NAME_MAX_LENGTH = 100;
 const DESCRIPTION_MAX_LENGTH = 350;
@@ -45,7 +22,13 @@ const NovoTime = () => {
     const [createdRepoName, setCreatedRepoName] = useState('');
 
     const addLog = (entry) => {
-        setOperationLog(prev => [...prev, entry]);
+        const id = Date.now() + Math.random();
+        setOperationLog(prev => [...prev, { ...entry, id }]);
+        return id;
+    };
+
+    const updateLog = (id, updates) => {
+        setOperationLog(prev => prev.map(log => log.id === id ? { ...log, ...updates } : log));
     };
 
     // ETAPA 1: Validar todos os usernames
@@ -74,8 +57,8 @@ const NovoTime = () => {
 
         for (const username of userList) {
             try {
-                const { data } = await octokit.users.getByUsername({ username });
-                results.push({ username, valid: true, avatarUrl: data.avatar_url, name: data.name || username });
+                const user = await validateUser({ octokit, username });
+                results.push(user);
             } catch (err) {
                 const reason = err.response?.status === 404
                     ? 'Usuário não encontrado no GitHub'
@@ -167,39 +150,34 @@ const NovoTime = () => {
                 : `Projeto de Pré-Incubação - Startup ${startupName}`;
 
             setStatus({ type: 'info', message: `Criando repositório '${repoName}'...` });
-            addLog({ type: 'info', message: `Criando repositório '${repoName}' a partir do template...` });
+            const logCreateId = addLog({ type: 'info', message: `Criando repositório '${repoName}' a partir do template...` });
 
-            await octokit.repos.createUsingTemplate({
-                template_owner: org,
-                template_repo: templateRepo,
-                owner: org,
-                name: repoName,
-                private: true,
-                description: repoDescription
-            });
+            await createTeamRepository({ octokit, org, templateRepo, repoName, description: repoDescription });
 
-            addLog({ type: 'success', message: `Repositório '${repoName}' criado com sucesso.` });
+            updateLog(logCreateId, { type: 'success', message: `Repositório '${repoName}' criado com sucesso.` });
 
             // 2. Aguardar o repositório ficar pronto
-            setStatus({ type: 'info', message: 'Aguardando o GitHub finalizar a cópia do template...' });
-            addLog({ type: 'info', message: 'Aguardando a cópia do template ser concluída...' });
+            setStatus({ type: 'info', message: 'Aguardando o GitHub finalizar a cópia do template (pode levar 1 minuto)...' });
+            const logWaitId = addLog({ type: 'info', message: 'Aguardando a cópia do template ser concluída...' });
 
-            const repoReady = await waitForRepoReady(octokit, org, repoName);
+            const repoReady = await waitForRepositoryReady({ octokit, org, repoName });
 
             if (!repoReady) {
-                addLog({ type: 'warning', message: 'Template demorou mais que o esperado. Continuando...' });
+                updateLog(logWaitId, { type: 'warning', message: 'Template demorou mais que o esperado. Continuando na tentativa...' });
             } else {
-                addLog({ type: 'success', message: 'Repositório pronto com conteúdo do template.' });
+                updateLog(logWaitId, { type: 'success', message: 'Repositório pronto com conteúdo do template.' });
             }
 
             // 3. Adicionar tópico identificador
             setStatus({ type: 'info', message: 'Adicionando identificação PampaTec...' });
-            await octokit.repos.replaceAllTopics({
-                owner: org,
-                repo: repoName,
-                names: ['pampatec-equipe']
+            const logTopicsId = addLog({ type: 'info', message: `Adicionando tópicos da equipe...` });
+            await addTeamTopics({
+                octokit,
+                org,
+                repoName,
+                topics: ['pampatec-equipe']
             });
-            addLog({ type: 'success', message: `Tópico 'pampatec-equipe' adicionado.` });
+            updateLog(logTopicsId, { type: 'success', message: `Tópicos adicionados com sucesso.` });
 
             // 4. Adicionar colaboradores (já validados)
             const validUsers = validatedUsers.filter(u => u.valid);
@@ -209,18 +187,19 @@ const NovoTime = () => {
                 setStatus({ type: 'info', message: `Adicionando ${validUsers.length} colaborador(es)...` });
 
                 for (const user of validUsers) {
+                    const logUserId = addLog({ type: 'info', message: `Convidando @${user.username}...` });
                     try {
-                        await octokit.repos.addCollaborator({
-                            owner: org,
-                            repo: repoName,
-                            username: user.username,
-                            permission: 'push'
+                        await addCollaborator({
+                            octokit,
+                            org,
+                            repoName,
+                            username: user.username
                         });
-                        addLog({ type: 'success', message: `✅ Convite enviado para @${user.username}.` });
+                        updateLog(logUserId, { type: 'success', message: `✅ Convite enviado para @${user.username}.` });
                         collabResults.success.push(user.username);
                     } catch (err) {
                         const errorMsg = err.response?.data?.message || err.message || 'Erro desconhecido';
-                        addLog({ type: 'danger', message: `❌ Falha ao adicionar @${user.username}: ${errorMsg}` });
+                        updateLog(logUserId, { type: 'danger', message: `❌ Falha ao adicionar @${user.username}: ${errorMsg}` });
                         collabResults.failed.push({ username: user.username, reason: errorMsg });
                     }
                 }

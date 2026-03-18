@@ -125,3 +125,47 @@ export const toggleTeamStatus = async ({ octokit, org, repoName, activate }) => 
 export const updateDescription = async ({ octokit, org, repoName, description }) => {
     await octokit.repos.update({ owner: org, repo: repoName, description });
 };
+
+/** Adiciona a equipe com tópicos padrão. */
+export const addTeamTopics = async ({ octokit, org, repoName, topics }) => {
+    await octokit.repos.replaceAllTopics({
+        owner: org,
+        repo: repoName,
+        names: topics
+    });
+};
+
+/** Cria o repositório baseado num template. */
+export const createTeamRepository = async ({ octokit, org, templateRepo, repoName, description }) => {
+    await octokit.repos.createUsingTemplate({
+        template_owner: org,
+        template_repo: templateRepo,
+        owner: org,
+        name: repoName,
+        private: true,
+        description
+    });
+};
+
+/** Aguarda um repositório clonado via template ficar efetivamente disponível (com commits copiados). */
+export const waitForRepositoryReady = async ({ octokit, org, repoName, maxAttempts = 20, intervalMs = 3000 }) => {
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            const { data } = await octokit.repos.get({ owner: org, repo: repoName });
+            if (data && data.id) {
+                try {
+                    // Listar commits na API. Ao invés de conteúdo, isso previne o NotFound e
+                    // também garante que a branch default foi definida e populada e evita 409 Conflict Empty Repo
+                    await octokit.repos.listCommits({ owner: org, repo: repoName, per_page: 1 });
+                    return true;
+                } catch {
+                    // Repositório ainda vazio (409 Conflict - Git Repository is empty)
+                }
+            }
+        } catch {
+            // Repo ainda não existe (404 Not Found)
+        }
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
+    return false;
+};
