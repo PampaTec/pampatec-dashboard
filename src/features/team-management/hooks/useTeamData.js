@@ -18,7 +18,7 @@ export const useTeamData = (repoName) => {
         retry: 1,
     });
 
-    return data; // { repo, collaborators, pendingInvites, progress }
+    return data; // { repo, collaborators, pendingInvites, progress, hasConsolidatedBmc }
 };
 
 /**

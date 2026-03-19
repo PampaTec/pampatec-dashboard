@@ -79,7 +79,19 @@ export const fetchTeamData = async ({ octokit, org, repoName }) => {
         progress = { hasProgress: false, steps: [], percentage: 0, currentStep: 0 };
     }
 
-    return { repo, collaborators, pendingInvites, progress };
+    let hasConsolidatedBmc = false;
+    try {
+        await octokit.repos.getContent({
+            owner: org,
+            repo: repoName,
+            path: 'BMC_CONSOLIDADO.md',
+        });
+        hasConsolidatedBmc = true;
+    } catch {
+        hasConsolidatedBmc = false;
+    }
+
+    return { repo, collaborators, pendingInvites, progress, hasConsolidatedBmc };
 };
 
 /** Verifica se um username existe no GitHub. */
@@ -145,6 +157,34 @@ export const createTeamRepository = async ({ octokit, org, templateRepo, repoNam
         private: true,
         description
     });
+};
+
+/** Atualiza variáveis no README.md do repositório recém-criado. */
+export const updateReadmeVariables = async ({ octokit, org, repoName }) => {
+    try {
+        const { data: fileData } = await octokit.repos.getContent({
+            owner: org,
+            repo: repoName,
+            path: 'README.md',
+        });
+
+        const content = decodeBase64(fileData.content);
+        let newContent = content.replace(/NOME_DO_REPOSITORIO/g, repoName);
+
+        if (content !== newContent) {
+            await octokit.repos.createOrUpdateFileContents({
+                owner: org,
+                repo: repoName,
+                path: 'README.md',
+                message: 'docs: atualiza template com o nome do repositório',
+                content: btoa(unescape(encodeURIComponent(newContent))),
+                sha: fileData.sha,
+            });
+        }
+    } catch (err) {
+        console.warn('Não foi possível atualizar o README.md', err);
+        throw err;
+    }
 };
 
 /** Aguarda um repositório clonado via template ficar efetivamente disponível (com commits copiados). */

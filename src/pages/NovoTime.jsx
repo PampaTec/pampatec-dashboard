@@ -3,7 +3,7 @@ import { Card, Form, Button, Alert, Spinner, Row, Col, ListGroup, Badge } from '
 import { Rocket, CheckCircle, AlertCircle, Github, XCircle, Clock, UserCheck, Search, FileText } from 'lucide-react';
 import { Octokit } from '@octokit/rest';
 import { useNavigate } from 'react-router-dom';
-import { validateUser, addCollaborator, createTeamRepository, waitForRepositoryReady, addTeamTopics } from '../features/team-management/api/teamApi';
+import { validateUser, addCollaborator, createTeamRepository, waitForRepositoryReady, addTeamTopics, updateReadmeVariables } from '../features/team-management/api/teamApi';
 
 const REPO_NAME_MAX_LENGTH = 100;
 const DESCRIPTION_MAX_LENGTH = 350;
@@ -166,6 +166,15 @@ const NovoTime = () => {
                 updateLog(logWaitId, { type: 'warning', message: 'Template demorou mais que o esperado. Continuando na tentativa...' });
             } else {
                 updateLog(logWaitId, { type: 'success', message: 'Repositório pronto com conteúdo do template.' });
+                
+                setStatus({ type: 'info', message: 'Atualizando README com nome do projeto...' });
+                const logReadmeId = addLog({ type: 'info', message: 'Personalizando README.md...' });
+                try {
+                    await updateReadmeVariables({ octokit, org, repoName });
+                    updateLog(logReadmeId, { type: 'success', message: 'README.md personalizado com sucesso.' });
+                } catch {
+                    updateLog(logReadmeId, { type: 'warning', message: 'Não foi possível personalizar o README.md.' });
+                }
             }
 
             // 3. Adicionar tópico identificador

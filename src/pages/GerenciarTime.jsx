@@ -46,7 +46,7 @@ class TeamErrorBoundary extends React.Component {
 // ─── Componente principal de conteúdo (recebe dados via Suspense) ─────────────
 
 const TeamContent = ({ repoName }) => {
-    const { repo, collaborators, pendingInvites, progress } = useTeamData(repoName);
+    const { repo, collaborators, pendingInvites, progress, hasConsolidatedBmc } = useTeamData(repoName);
     const refreshTeam = useRefreshTeam(repoName);
     const { octokit, token, org } = useGithubClient();
     const navigate = useNavigate();
@@ -328,6 +328,20 @@ const TeamContent = ({ repoName }) => {
                                             style={{ width: `${progress.percentage}%` }}
                                         />
                                     </div>
+                                    {hasConsolidatedBmc && (
+                                        <div className="d-flex justify-content-start mt-3">
+                                            <Button 
+                                                variant="outline-info" 
+                                                size="sm" 
+                                                href={`https://github.com/${org}/${repoName}/blob/main/BMC_CONSOLIDADO.md`} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="d-flex align-items-center gap-2"
+                                            >
+                                                <ExternalLink size={14} /> Ver BMC preenchido
+                                            </Button>
+                                        </div>
+                                    )}
                                 </>
                             ) : (
                                 <div className="text-center py-3 text-muted">
